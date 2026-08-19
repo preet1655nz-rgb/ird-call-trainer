@@ -1,1 +1,712 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>IRD Call Trainer</title>
+
+  <!-- PWA / iOS Home Screen -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="IRD Trainer">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root { --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }
+    body { font-family: Inter, system-ui, -apple-system, sans-serif; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+    .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0f766e 100%); }
+    .listening { animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(56,178,172,0.6); }
+      70% { box-shadow: 0 0 0 18px rgba(56,178,172,0); }
+      100% { box-shadow: 0 0 0 0 rgba(56,178,172,0); }
+    }
+    .view { display: none; }
+    .view.active { display: block; }
+    .tab-active { background: #0f766e !important; color: #fff !important; border-color: #0f766e !important; }
+    button, select { min-height: 44px; }
+    #toast { bottom: calc(20px + var(--safe-bottom)); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<nav class="gradient-bg text-white shadow sticky top-0 z-50">
+  <div class="max-w-lg mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-bold text-sm">IRD</div>
+      <div>
+        <div class="font-bold text-sm leading-tight">Call Trainer</div>
+        <div class="text-[10px] text-teal-200">Confidence • Clarity</div>
+      </div>
+    </div>
+    <div class="flex gap-3 text-xs font-medium">
+      <span>🔥 <span id="navStreak">0</span></span>
+      <span>★ <span id="navScore">0</span></span>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-lg mx-auto px-3 py-4">
+  <!-- TABS - horizontal scroll friendly -->
+  <div class="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar" id="tabBar" style="-webkit-overflow-scrolling:touch">
+    <button class="tab-btn tab-active px-3 py-2 rounded-full text-xs font-medium border bg-white whitespace-nowrap" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn px-3 py-2 rounded-full text-xs font-medium border bg-white text-slate-600 whitespace-nowrap" data-tab="practice">Practice</button>
+    <button class="tab-btn px-3 py-2 rounded-full text-xs font-medium border bg-white text-slate-600 whitespace-nowrap" data-tab="debt">Debt</button>
+    <button class="tab-btn px-3 py-2 rounded-full text-xs font-medium border bg-white text-slate-600 whitespace-nowrap" data-tab="drills">Drills</button>
+    <button class="tab-btn px-3 py-2 rounded-full text-xs font-medium border bg-white text-slate-600 whitespace-nowrap" data-tab="daily">Daily</button>
+    <button class="tab-btn px-3 py-2 rounded-full text-xs font-medium border bg-white text-slate-600 whitespace-nowrap" data-tab="tests">Tests</button>
+    <button class="tab-btn px-3 py-2 rounded-full text-xs font-medium border bg-white text-slate-600 whitespace-nowrap" data-tab="science">Science</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="view active">
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <div class="text-[10px] text-slate-400 uppercase font-semibold">Score</div>
+        <div class="text-2xl font-bold mt-0.5"><span id="dashScore">0</span><span class="text-xs text-slate-400">/100</span></div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <div class="text-[10px] text-slate-400 uppercase font-semibold">Streak</div>
+        <div class="text-2xl font-bold text-orange-500 mt-0.5"><span id="dashStreak">0</span> <span class="text-sm">days</span></div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <div class="text-[10px] text-slate-400 uppercase font-semibold">Practices</div>
+        <div class="text-2xl font-bold text-teal-600 mt-0.5" id="dashPractices">0</div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <div class="text-[10px] text-slate-400 uppercase font-semibold">Level</div>
+        <div class="text-2xl font-bold mt-0.5"><span id="dashLevel">1</span> <span class="text-xs text-slate-400" id="levelName">Novice</span></div>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border shadow-sm mb-3">
+      <h3 class="font-semibold text-sm mb-2">Score Trend</h3>
+      <canvas id="scoreChart" height="120"></canvas>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border shadow-sm mb-3">
+      <h3 class="font-semibold text-sm mb-2">Skills</h3>
+      <canvas id="radarChart" height="160"></canvas>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border shadow-sm">
+      <h3 class="font-semibold text-sm mb-2">Recent</h3>
+      <div id="recentList" class="text-sm text-slate-500">No sessions yet.</div>
+    </div>
+  </div>
+
+  <!-- PRACTICE -->
+  <div id="practice" class="view">
+    <div class="space-y-3">
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <label class="font-semibold text-sm block mb-2">Scenario</label>
+        <select id="scenarioSelect" class="w-full border rounded-xl px-3 py-2.5 text-sm bg-white">
+          <option value="accountant">Accountant Follow-up</option>
+          <option value="return">Return Status</option>
+          <option value="details">Contact + Overdue</option>
+          <option value="trust">Non-Active Trust</option>
+          <option value="company">New Company IRD</option>
+          <option value="residency">Tax Residency</option>
+          <option value="free">Free Practice</option>
+        </select>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <div class="font-semibold text-sm mb-2">Prompt</div>
+        <div id="promptBox" class="bg-slate-50 rounded-xl p-3 text-sm"></div>
+      </div>
+      <div class="bg-gradient-to-br from-slate-800 to-teal-700 rounded-2xl p-6 text-white text-center">
+        <button id="micBtn" class="w-16 h-16 rounded-full bg-white/20 active:bg-white/30 flex items-center justify-center mx-auto mb-2 text-3xl">🎤</button>
+        <div id="micStatus" class="text-sm font-medium">Tap to speak</div>
+        <div class="text-[11px] opacity-70 mt-1">Works best in Chrome / Safari</div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <div class="flex justify-between mb-2">
+          <span class="font-semibold text-sm">Transcript</span>
+          <span id="timer" class="text-xs font-mono text-slate-400">00:00</span>
+        </div>
+        <div id="transcript" class="bg-slate-50 rounded-xl p-3 min-h-[100px] text-sm">Your speech appears here…</div>
+      </div>
+      <div id="feedback" class="bg-white rounded-2xl p-4 border shadow-sm hidden">
+        <div class="font-semibold text-sm mb-3">Analysis</div>
+        <div class="grid grid-cols-4 gap-2 mb-3 text-center">
+          <div class="bg-slate-50 rounded-xl p-2"><div class="text-[10px] text-slate-400">Clarity</div><div id="scClarity" class="font-bold text-lg">–</div></div>
+          <div class="bg-slate-50 rounded-xl p-2"><div class="text-[10px] text-slate-400">Conf</div><div id="scConf" class="font-bold text-lg text-teal-600">–</div></div>
+          <div class="bg-slate-50 rounded-xl p-2"><div class="text-[10px] text-slate-400">Struct</div><div id="scStruct" class="font-bold text-lg">–</div></div>
+          <div class="bg-slate-50 rounded-xl p-2"><div class="text-[10px] text-slate-400">Overall</div><div id="scOverall" class="font-bold text-lg text-orange-500">–</div></div>
+        </div>
+        <div class="text-[11px] text-slate-500 mb-1">Fillers</div>
+        <div id="fillerList" class="text-sm mb-2">–</div>
+        <div class="text-[11px] text-slate-500 mb-1">Suggestions</div>
+        <ul id="suggestions" class="text-sm space-y-1 mb-3"></ul>
+        <button id="saveBtn" class="w-full py-3 bg-slate-800 text-white rounded-xl text-sm font-medium">Save Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEBT -->
+  <div id="debt" class="view">
+    <div class="bg-white rounded-2xl p-4 border shadow-sm mb-3">
+      <h2 class="font-bold mb-1">Debt Scenarios</h2>
+      <p class="text-xs text-slate-500 mb-3">High-stakes practice for real collection calls.</p>
+      <div id="debtList" class="space-y-2"></div>
+    </div>
+    <div id="debtActive" class="hidden bg-white rounded-2xl p-4 border shadow-sm">
+      <div class="flex justify-between items-start mb-2">
+        <h3 id="debtTitle" class="font-semibold text-sm pr-2"></h3>
+        <button id="debtClose" class="text-slate-400 text-xs shrink-0">Close</button>
+      </div>
+      <div id="debtPrompt" class="bg-slate-50 rounded-xl p-3 text-sm mb-3"></div>
+      <button id="debtStart" class="w-full py-3 bg-teal-600 text-white rounded-xl text-sm font-medium">Start Speaking</button>
+    </div>
+  </div>
+
+  <!-- DRILLS -->
+  <div id="drills" class="view">
+    <div id="drillCards" class="grid grid-cols-2 gap-3"></div>
+    <div id="drillArea" class="hidden mt-3 bg-white rounded-2xl p-4 border shadow-sm">
+      <div class="flex justify-between mb-2">
+        <h3 id="drillTitle" class="font-semibold text-sm"></h3>
+        <button id="drillClose" class="text-slate-400 text-xs">Close</button>
+      </div>
+      <div id="drillContent"></div>
+    </div>
+  </div>
+
+  <!-- DAILY -->
+  <div id="daily" class="view">
+    <div class="bg-gradient-to-br from-slate-800 to-teal-700 rounded-2xl p-5 text-white mb-3">
+      <h2 class="font-bold text-lg mb-1">Today’s Challenge</h2>
+      <p id="dailyDate" class="text-teal-200 text-xs mb-3"></p>
+      <div id="dailyBox" class="bg-white/10 rounded-xl p-3 text-sm leading-relaxed"></div>
+      <button id="dailyBtn" class="mt-4 w-full py-3 bg-white text-slate-800 rounded-xl text-sm font-semibold">Mark Complete</button>
+    </div>
+  </div>
+
+  <!-- TESTS -->
+  <div id="tests" class="view">
+    <div class="space-y-3">
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <h3 class="font-semibold text-sm mb-1">Anxiety Self-Test</h3>
+        <p class="text-[11px] text-slate-500 mb-3">1 = Never · 5 = Always</p>
+        <div id="anxietyQs" class="space-y-3 text-sm"></div>
+        <button id="anxietyBtn" class="mt-3 w-full py-3 bg-slate-800 text-white rounded-xl text-sm">Get Score</button>
+        <div id="anxietyResult" class="mt-3 text-sm hidden"></div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border shadow-sm">
+        <h3 class="font-semibold text-sm mb-1">Confidence Snapshot</h3>
+        <p class="text-[11px] text-slate-500 mb-3">Rate yourself 1–5</p>
+        <div id="confQs" class="space-y-3 text-sm"></div>
+        <button id="confBtn" class="mt-3 w-full py-3 bg-teal-600 text-white rounded-xl text-sm">Save Snapshot</button>
+        <div id="confResult" class="mt-3 text-sm hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCIENCE -->
+  <div id="science" class="view">
+    <div class="bg-white rounded-2xl p-4 border shadow-sm">
+      <h2 class="font-bold mb-3">Research & Experts</h2>
+      <p class="text-sm text-slate-600 mb-3">Interventions for speaking anxiety show large effects (g ≈ 0.74–1.17). CBT + gradual exposure + deliberate practice work best.</p>
+      <div class="space-y-2 text-sm">
+        <div class="bg-slate-50 rounded-xl p-3"><strong>Matt Abrahams</strong><br>Stanford. Power Pause & structure under pressure.</div>
+        <div class="bg-slate-50 rounded-xl p-3"><strong>Mark Bowden</strong><br>Presence & body language (Truthplane).</div>
+        <div class="bg-slate-50 rounded-xl p-3"><strong>Vinh Giang</strong><br>Vocal variety and storytelling.</div>
+        <div class="bg-slate-50 rounded-xl p-3"><strong>This app</strong><br>Exposure, feedback, filler drills, visualisation, daily practice.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm opacity-0 transition-opacity duration-300 z-50 pointer-events-none shadow-lg"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  // Register service worker for PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+
+  const SCENARIOS = {
+    accountant: { title: "Accountant Follow-up", prompt: "Call an accountant about a client who moved overseas. Outstanding returns exist. Collect departure date, country, NZ income, permanent place of abode, overseas contacts. Suggest IR886. Set a clear deadline." },
+    return: { title: "Return Status", prompt: "Customer asks why their return is still under review. Explain processed vs final allocation. Manage expectations calmly." },
+    details: { title: "Contact + Overdue", prompt: "Update email, phone and addresses. Raise long-overdue returns and GST bill. Offer myIR password reset." },
+    trust: { title: "Non-Active Trust", prompt: "Customer wants to stop filing for a dormant trust. Explain non-active vs closing and documents needed." },
+    company: { title: "New Company IRD", prompt: "Customer registered a company but IRD number not showing. Guide identity verification." },
+    residency: { title: "Tax Residency", prompt: "Customer lives between NZ and another country. Determine filing requirement and update residency if needed." },
+    free: { title: "Free Practice", prompt: "Speak 60–90 seconds on any IRD topic. Focus on zero fillers and clear structure." }
+  };
+
+  const DEBT = [
+    { id:'d1', title:"First Contact – Overdue Bill", prompt:"Call about an overdue income tax bill of $15,000 caused by incorrect RWT rate. Explain reason, interest and penalties. State payable within 10 working days. Offer instalment options." },
+    { id:'d2', title:"Customer Says ‘I Can’t Pay’", prompt:"Customer cannot pay in full. Explore reasons briefly, then move to instalment or hardship. Gather basic affordability info." },
+    { id:'d3', title:"Setting Up Instalment", prompt:"Customer agrees to instalment. Confirm amount, frequency, start date. Confirm they understand terms." },
+    { id:'d4', title:"Hardship Discussion", prompt:"Customer is in genuine hardship. Explain process, required information, and that returns usually need filing first." },
+    { id:'d5', title:"Broken Promise", prompt:"Customer previously agreed but did not pay. Re-engage firmly without accusation. Offer new realistic plan with deadline." },
+    { id:'d6', title:"Accountant Debt Follow-up", prompt:"Talk to tax agent about client’s long-overdue debt. Set firm but fair deadline (this Friday)." },
+    { id:'d7', title:"Explaining Interest", prompt:"Customer is angry about interest. Calmly explain how late payment interest works and that an arrangement stops it growing." },
+    { id:'d8', title:"Closing Difficult Call", prompt:"End a tense debt call professionally. Summarise next steps, confirm deadline, thank the customer." }
+  ];
+
+  const DRILLS = [
+    { id:'filler', icon:'🎯', title:'Filler Killer', desc:'45s · zero Uh/Um', color:'bg-orange-500' },
+    { id:'pause', icon:'⏸️', title:'Power Pause', desc:'Deliberate silence', color:'bg-teal-600' },
+    { id:'jam', icon:'🔄', title:'Just a Minute', desc:'60s continuous', color:'bg-slate-800' },
+    { id:'object', icon:'🎲', title:'Object Roulette', desc:'Link object to IRD', color:'bg-purple-600' },
+    { id:'empathy', icon:'💙', title:'Empathy Bank', desc:'Warm debt language', color:'bg-pink-500' },
+    { id:'shadow', icon:'📜', title:'Script Shadow', desc:'Copy model delivery', color:'bg-slate-700' },
+    { id:'lightning', icon:'⚡', title:'Word Lightning', desc:'10s rapid point', color:'bg-yellow-500' },
+    { id:'visual', icon:'🧘', title:'Visualisation', desc:'Mental rehearsal', color:'bg-indigo-600' }
+  ];
+
+  const DAILY = [
+    "Record 60s explaining why returns must be filed before instalment. Zero fillers.",
+    "Power Pause: “The amount has been overdue. [PAUSE] We have options.”",
+    "Deliver empathy formula for a $12k overdue GST bill.",
+    "Just-a-Minute on “Why late payment interest exists”.",
+    "Shadow a clean debt call opening then record yourself.",
+    "Visualise a successful debt call for 3 minutes.",
+    "Gather hardship info in under 90s while staying warm."
+  ];
+
+  const ANX_Q = [
+    "I feel anxious before outbound debt calls.",
+    "My mind goes blank when challenged.",
+    "I worry about saying the wrong thing.",
+    "I use more fillers when the call is tense.",
+    "I avoid putting people on hold when I need help.",
+    "My heart rate rises discussing large debts.",
+    "I rush the purpose of the call.",
+    "I criticise myself after difficult calls."
+  ];
+
+  const CONF_Q = [
+    "I open debt calls clearly and confidently.",
+    "I stay calm with upset customers.",
+    "I explain interest and options without hesitation.",
+    "I use deliberate pauses instead of fillers.",
+    "I can set firm deadlines respectfully.",
+    "I recover quickly from small mistakes."
+  ];
+
+  const FILLERS = ['uh','um','okay','ok','like','you know','sort of','kind of','basically','actually','right so','so yeah'];
+
+  let state = {
+    score: 0, streak: 0, bestStreak: 0, lastDate: null,
+    total: 0, sessions: [],
+    skills: { clarity: 50, confidence: 50, structure: 50, empathy: 50 },
+    dailyDone: null
+  };
+
+  let recognition = null, listening = false, transcript = '', timerId = null, secs = 0, lastAnalysis = null;
+  let scoreChart = null, radarChart = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    setTimeout(() => t.style.opacity = '0', 2800);
+  }
+
+  function load() {
+    try {
+      const s = localStorage.getItem('ird_trainer_pwa_v1');
+      if (s) Object.assign(state, JSON.parse(s));
+    } catch(e) {}
+    updateUI();
+  }
+
+  function save() {
+    try { localStorage.setItem('ird_trainer_pwa_v1', JSON.stringify(state)); } catch(e) {}
+    updateUI();
+  }
+
+  function updateUI() {
+    $('navStreak').textContent = state.streak;
+    $('navScore').textContent = Math.round(state.score);
+    $('dashScore').textContent = Math.round(state.score);
+    $('dashStreak').textContent = state.streak;
+    $('dashPractices').textContent = state.total;
+    const lvl = Math.floor(state.total / 5) + 1;
+    const names = ['Novice','Developing','Competent','Proficient','Confident','Expert','Master'];
+    $('dashLevel').textContent = lvl;
+    $('levelName').textContent = names[Math.min(lvl-1, 6)];
+
+    const list = $('recentList');
+    if (!state.sessions.length) list.innerHTML = 'No sessions yet.';
+    else list.innerHTML = state.sessions.slice(0,6).map(s =>
+      `<div class="flex justify-between py-1.5 border-b border-slate-100 last:border-0">
+        <div><div class="font-medium text-sm">${s.scenario}</div><div class="text-[11px] text-slate-400">${s.date}</div></div>
+        <div class="font-bold ${s.score>=75?'text-teal-600':s.score>=55?'text-orange-500':'text-red-500'}">${s.score}</div>
+      </div>`).join('');
+    try { updateCharts(); } catch(e) {}
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+    const view = $(name);
+    if (view) view.classList.add('active');
+    const btn = document.querySelector(`[data-tab="${name}"]`);
+    if (btn) btn.classList.add('tab-active');
+    if (name === 'practice') updatePrompt();
+  }
+
+  function initSpeech() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      $('micStatus').textContent = 'Speech needs Safari / Chrome';
+      return;
+    }
+    recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-NZ';
+
+    recognition.onresult = function(e) {
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t + ' ';
+        else interim += t;
+      }
+      if (final) transcript += final;
+      $('transcript').textContent = (transcript + interim).trim() || 'Listening…';
+    };
+    recognition.onend = function() {
+      if (listening) try { recognition.start(); } catch(e) {}
+    };
+    recognition.onerror = function(e) {
+      if (e.error === 'not-allowed') toast('Please allow microphone');
+    };
+  }
+
+  function startListen() {
+    if (!recognition) initSpeech();
+    if (!recognition) { toast('Speech not available on this browser'); return; }
+
+    transcript = '';
+    $('transcript').textContent = 'Listening… speak now';
+    $('feedback').classList.add('hidden');
+    listening = true;
+    secs = 0;
+    $('timer').textContent = '00:00';
+    timerId = setInterval(() => {
+      secs++;
+      $('timer').textContent = String(Math.floor(secs/60)).padStart(2,'0') + ':' + String(secs%60).padStart(2,'0');
+    }, 1000);
+
+    $('micBtn').classList.add('listening');
+    $('micStatus').textContent = 'Listening… tap to stop';
+
+    try { recognition.start(); } catch(e) {
+      toast('Could not start mic');
+      stopListen();
+    }
+  }
+
+  function stopListen() {
+    listening = false;
+    clearInterval(timerId);
+    try { recognition.stop(); } catch(e) {}
+    $('micBtn').classList.remove('listening');
+    $('micStatus').textContent = 'Tap to speak';
+    if (transcript.trim().length > 8) analyse(transcript.trim());
+    else toast('Speech too short');
+  }
+
+  function toggleMic() {
+    if (listening) stopListen();
+    else startListen();
+  }
+
+  function analyse(text) {
+    const lower = text.toLowerCase();
+    const words = lower.split(/\s+/).filter(Boolean);
+    const wc = words.length;
+
+    let fillerCount = 0;
+    const found = [];
+    FILLERS.forEach(f => {
+      const m = lower.match(new RegExp('\\b' + f + '\\b', 'gi'));
+      if (m) { fillerCount += m.length; found.push(f + ' ×' + m.length); }
+    });
+    const corrections = (lower.match(/\b(sorry|i mean|wait|actually)\b/g) || []).length;
+
+    let clarity = Math.max(20, Math.min(100, Math.round(100 - (fillerCount / Math.max(wc,1) * 100) * 8 - corrections * 5)));
+    let confidence = Math.max(15, Math.min(100, Math.round(100 - fillerCount * 6 - corrections * 4 + (wc > 40 && wc < 180 ? 5 : 0))));
+    let structure = 55;
+    if (/confirm|regarding|calling about|purpose/.test(lower)) structure += 12;
+    if (/thank you|have a good|next step|deadline/.test(lower)) structure += 10;
+    if (wc < 25) structure -= 15;
+    structure = Math.max(20, Math.min(100, structure));
+    let empathy = 40;
+    if (/understand|overwhelming|appreciate|know this can|help|options|support/.test(lower)) empathy += 30;
+    empathy = Math.max(20, Math.min(100, empathy));
+    const overall = Math.round(clarity*0.3 + confidence*0.35 + structure*0.2 + empathy*0.15);
+
+    const suggestions = [];
+    if (fillerCount >= 3) suggestions.push('You used ' + fillerCount + ' fillers. Replace “Okay/Um” with a pause.');
+    if (corrections >= 2) suggestions.push('Self-corrections detected. Practise key phrases until clean.');
+    if (empathy < 55 && /overdue|bill|outstanding|debt|interest/.test(lower)) suggestions.push('Add empathy: “I know these situations can feel overwhelming…”');
+    if (structure < 60) suggestions.push('Tighten structure: Purpose → Info → Options → Next step.');
+    if (overall >= 80) suggestions.push('Strong delivery. Keep this level.');
+    if (!suggestions.length) suggestions.push('Solid session. Keep focusing on pauses.');
+
+    $('scClarity').textContent = clarity;
+    $('scConf').textContent = confidence;
+    $('scStruct').textContent = structure;
+    $('scOverall').textContent = overall;
+    $('fillerList').textContent = found.length ? found.join(', ') : 'None – excellent!';
+    $('suggestions').innerHTML = suggestions.map(s => '<li>→ ' + s + '</li>').join('');
+    $('feedback').classList.remove('hidden');
+    lastAnalysis = { clarity, confidence, structure, empathy, overall, fillerCount };
+  }
+
+  function saveSession() {
+    if (!lastAnalysis) return;
+    const a = lastAnalysis;
+    const sel = $('scenarioSelect');
+    const scenario = sel.options[sel.selectedIndex].text;
+
+    state.sessions.unshift({
+      scenario, date: new Date().toLocaleString('en-NZ', { dateStyle: 'medium', timeStyle: 'short' }),
+      score: a.overall, fillers: a.fillerCount
+    });
+    if (state.sessions.length > 25) state.sessions.pop();
+
+    state.score = state.score === 0 ? a.overall : Math.round(state.score * 0.7 + a.overall * 0.3);
+    state.skills.clarity = Math.round(state.skills.clarity * 0.7 + a.clarity * 0.3);
+    state.skills.confidence = Math.round(state.skills.confidence * 0.7 + a.confidence * 0.3);
+    state.skills.structure = Math.round(state.skills.structure * 0.7 + a.structure * 0.3);
+    state.skills.empathy = Math.round(state.skills.empathy * 0.7 + a.empathy * 0.3);
+    state.total++;
+
+    const today = new Date().toDateString();
+    if (state.lastDate !== today) {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      state.streak = (state.lastDate === y.toDateString()) ? state.streak + 1 : 1;
+      state.lastDate = today;
+      if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+    }
+    save();
+    toast('Saved! Score ' + a.overall);
+    $('feedback').classList.add('hidden');
+    lastAnalysis = null;
+  }
+
+  function updatePrompt() {
+    const s = SCENARIOS[$('scenarioSelect').value];
+    $('promptBox').innerHTML = '<div class="font-medium mb-1">' + s.title + '</div><div class="text-slate-600">' + s.prompt + '</div>';
+  }
+
+  function renderDebt() {
+    $('debtList').innerHTML = DEBT.map(d =>
+      `<button class="debt-btn text-left p-3 rounded-xl border active:bg-teal-50 w-full" data-id="${d.id}">
+        <div class="font-medium text-sm">${d.title}</div>
+        <div class="text-[11px] text-slate-500 mt-0.5 line-clamp-2">${d.prompt.slice(0,80)}…</div>
+      </button>`).join('');
+  }
+
+  function openDebt(id) {
+    const d = DEBT.find(x => x.id === id);
+    if (!d) return;
+    $('debtTitle').textContent = d.title;
+    $('debtPrompt').textContent = d.prompt;
+    $('debtActive').classList.remove('hidden');
+  }
+
+  function renderDrills() {
+    $('drillCards').innerHTML = DRILLS.map(d =>
+      `<div class="bg-white rounded-2xl p-3 border shadow-sm">
+        <div class="text-lg mb-0.5">${d.icon}</div>
+        <div class="font-semibold text-sm">${d.title}</div>
+        <div class="text-[11px] text-slate-500 mb-2">${d.desc}</div>
+        <button class="drill-btn w-full py-2 ${d.color} text-white rounded-xl text-xs font-medium" data-id="${d.id}">Start</button>
+      </div>`).join('');
+  }
+
+  function startDrill(id) {
+    $('drillArea').classList.remove('hidden');
+    const title = $('drillTitle'), content = $('drillContent');
+    if (id === 'filler') {
+      title.textContent = '🎯 Filler Killer';
+      content.innerHTML = '<p class="text-sm mb-3">Speak 45s about setting up an instalment. Goal: zero fillers.</p><button class="timed-btn w-full py-2.5 bg-orange-500 text-white rounded-xl text-sm" data-secs="45">Start 45s</button>';
+    } else if (id === 'pause') {
+      title.textContent = '⏸️ Power Pause';
+      content.innerHTML = '<p class="text-sm mb-2">At each [PAUSE] wait a full 2 seconds.</p><div class="bg-slate-50 rounded-xl p-3 text-sm space-y-2"><p>“The amount has been overdue. <strong class="text-teal-600">[PAUSE]</strong> We do have options.”</p></div>';
+    } else if (id === 'jam') {
+      title.textContent = '🔄 Just a Minute';
+      content.innerHTML = '<p class="text-sm mb-3">Speak 60s on “Why late payment interest exists”.</p><button class="timed-btn w-full py-2.5 bg-slate-800 text-white rounded-xl text-sm" data-secs="60">Start</button>';
+    } else if (id === 'object') {
+      title.textContent = '🎲 Object Roulette';
+      content.innerHTML = '<p class="text-sm mb-3">Pick any object near you. Speak 30s linking it to professionalism.</p><button class="timed-btn w-full py-2.5 bg-purple-600 text-white rounded-xl text-sm" data-secs="30">Start</button>';
+    } else if (id === 'empathy') {
+      title.textContent = '💙 Empathy Bank';
+      content.innerHTML = '<div class="space-y-2 text-sm"><div class="bg-pink-50 rounded-xl p-3">“I know situations like this can feel overwhelming. The most important next step is…”</div><div class="bg-pink-50 rounded-xl p-3">“I understand these amounts create stress. Let’s look at options together.”</div></div>';
+    } else if (id === 'shadow') {
+      title.textContent = '📜 Script Shadow';
+      content.innerHTML = '<div class="bg-slate-50 rounded-xl p-3 text-sm mb-3">“Good afternoon, this is Gary from Inland Revenue. I’m calling about an overdue income tax bill of $15,000. Late payment interest has applied. This amount is payable within 10 working days. Would you like to discuss an instalment arrangement?”</div><button id="shadowBtn" class="w-full py-2.5 bg-slate-700 text-white rounded-xl text-sm">Record Your Version</button>';
+    } else if (id === 'lightning') {
+      title.textContent = '⚡ Word Lightning';
+      content.innerHTML = '<p class="text-sm mb-2">One strong point in 10s using: <strong id="lightWord">instalment</strong></p><button id="newWord" class="px-3 py-1.5 bg-yellow-500 text-white rounded-lg text-xs mr-2">New Word</button><button class="timed-btn px-3 py-1.5 bg-slate-800 text-white rounded-lg text-xs" data-secs="10">Go</button>';
+    } else if (id === 'visual') {
+      title.textContent = '🧘 Visualisation';
+      content.innerHTML = '<p class="text-sm">Close your eyes for 3 minutes. Imagine a successful debt call: calm voice, clear structure, customer agreeing. Research shows this can lift performance significantly.</p>';
+    }
+  }
+
+  function setDaily() {
+    const day = new Date().getDay();
+    $('dailyDate').textContent = new Date().toLocaleDateString('en-NZ', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('dailyBox').textContent = DAILY[day % DAILY.length];
+  }
+
+  function completeDaily() {
+    const today = new Date().toDateString();
+    if (state.dailyDone === today) { toast('Already done today'); return; }
+    state.dailyDone = today;
+    if (state.lastDate !== today) {
+      const y = new Date(); y.setDate(y.getDate()-1);
+      state.streak = (state.lastDate === y.toDateString()) ? state.streak + 1 : 1;
+      state.lastDate = today;
+      if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+    }
+    state.total++;
+    save();
+    toast('Challenge complete! Streak ' + state.streak);
+  }
+
+  function renderTests() {
+    $('anxietyQs').innerHTML = ANX_Q.map((q,i) =>
+      `<div class="mb-2"><div class="mb-1 text-sm">${q}</div><div class="flex gap-3 text-xs">` +
+      [1,2,3,4,5].map(v => `<label class="flex items-center gap-1"><input type="radio" name="aq${i}" value="${v}"> ${v}</label>`).join('') +
+      `</div></div>`).join('');
+    $('confQs').innerHTML = CONF_Q.map((q,i) =>
+      `<div class="mb-2"><div class="mb-1 text-sm">${q}</div><div class="flex gap-3 text-xs">` +
+      [1,2,3,4,5].map(v => `<label class="flex items-center gap-1"><input type="radio" name="cq${i}" value="${v}"> ${v}</label>`).join('') +
+      `</div></div>`).join('');
+  }
+
+  function scoreAnxiety() {
+    let total = 0, count = 0;
+    for (let i = 0; i < 8; i++) {
+      const s = document.querySelector(`input[name="aq${i}"]:checked`);
+      if (s) { total += +s.value; count++; }
+    }
+    if (count < 8) { toast('Answer all questions'); return; }
+    const avg = (total / count).toFixed(1);
+    const msg = avg <= 2.2 ? 'Low anxiety – strong base.' : avg <= 3.5 ? 'Moderate – normal and trainable.' : 'Higher – the drills here help.';
+    $('anxietyResult').innerHTML = `<strong>Average: ${avg}/5</strong><br>${msg}`;
+    $('anxietyResult').classList.remove('hidden');
+  }
+
+  function scoreConf() {
+    let total = 0, count = 0;
+    for (let i = 0; i < 6; i++) {
+      const s = document.querySelector(`input[name="cq${i}"]:checked`);
+      if (s) { total += +s.value; count++; }
+    }
+    if (count < 6) { toast('Rate all items'); return; }
+    const avg = (total / count).toFixed(1);
+    $('confResult').innerHTML = `<strong>Snapshot: ${avg}/5</strong><br>Track monthly. Practice moves the number.`;
+    $('confResult').classList.remove('hidden');
+  }
+
+  function initCharts() {
+    try {
+      if (typeof Chart === 'undefined') return;
+      scoreChart = new Chart($('scoreChart').getContext('2d'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ data: [], borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.12)', fill: true, tension: 0.35, pointRadius: 3 }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 }, x: { display: false } } }
+      });
+      radarChart = new Chart($('radarChart').getContext('2d'), {
+        type: 'radar',
+        data: { labels: ['Clarity','Confidence','Structure','Empathy'], datasets: [{ data: [50,50,50,50], backgroundColor: 'rgba(15,118,110,0.2)', borderColor: '#0f766e' }] },
+        options: { responsive: true, scales: { r: { min: 0, max: 100, ticks: { display: false } } }, plugins: { legend: { display: false } } }
+      });
+    } catch(e) {}
+  }
+
+  function updateCharts() {
+    if (!scoreChart || !radarChart) return;
+    const recent = state.sessions.slice(0,8).reverse();
+    scoreChart.data.labels = recent.map((_,i) => 'S'+(i+1));
+    scoreChart.data.datasets[0].data = recent.map(s => s.score);
+    scoreChart.update();
+    radarChart.data.datasets[0].data = [state.skills.clarity, state.skills.confidence, state.skills.structure, state.skills.empathy];
+    radarChart.update();
+  }
+
+  function init() {
+    load();
+    initSpeech();
+    initCharts();
+    renderDebt();
+    renderDrills();
+    renderTests();
+    setDaily();
+    updatePrompt();
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', function() { switchTab(this.getAttribute('data-tab')); });
+    });
+
+    $('scenarioSelect').addEventListener('change', updatePrompt);
+    $('micBtn').addEventListener('click', toggleMic);
+    $('saveBtn').addEventListener('click', saveSession);
+
+    $('debtList').addEventListener('click', function(e) {
+      const btn = e.target.closest('.debt-btn');
+      if (btn) openDebt(btn.getAttribute('data-id'));
+    });
+    $('debtClose').addEventListener('click', () => $('debtActive').classList.add('hidden'));
+    $('debtStart').addEventListener('click', function() {
+      switchTab('practice');
+      $('scenarioSelect').value = 'free';
+      $('promptBox').innerHTML = '<div class="font-medium mb-1">' + $('debtTitle').textContent + '</div><div class="text-slate-600">' + $('debtPrompt').textContent + '</div>';
+      startListen();
+    });
+
+    $('drillCards').addEventListener('click', function(e) {
+      const btn = e.target.closest('.drill-btn');
+      if (btn) startDrill(btn.getAttribute('data-id'));
+    });
+    $('drillClose').addEventListener('click', () => $('drillArea').classList.add('hidden'));
+
+    document.addEventListener('click', function(e) {
+      if (e.target.classList.contains('timed-btn')) {
+        const s = parseInt(e.target.getAttribute('data-secs'), 10);
+        toast('Speak for ' + s + 's');
+        startListen();
+        setTimeout(() => { if (listening) stopListen(); }, s * 1000);
+      }
+      if (e.target.id === 'shadowBtn') toggleMic();
+      if (e.target.id === 'newWord') {
+        const words = ['instalment','hardship','interest','deadline','myIR','returns','penalties','arrangement','overdue'];
+        $('lightWord').textContent = words[Math.floor(Math.random()*words.length)];
+      }
+    });
+
+    $('dailyBtn').addEventListener('click', completeDaily);
+    $('anxietyBtn').addEventListener('click', scoreAnxiety);
+    $('confBtn').addEventListener('click', scoreConf);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
